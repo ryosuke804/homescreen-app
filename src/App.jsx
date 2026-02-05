@@ -114,6 +114,54 @@ const formatAge = (birthDate, setting) => {
   return `${age}歳`;
 };
 
+// 画像圧縮ヘルパー関数（全コンポーネントで使用）
+const compressImage = (file, maxWidth = 1920, maxHeight = 1080, quality = 0.8) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // 縦横比を保ちながらリサイズ
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        // Canvasで圧縮
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // 圧縮してBase64に変換
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+
+        // サイズをログ出力
+        const originalSize = (file.size / 1024 / 1024).toFixed(2);
+        const compressedSize = (compressedBase64.length * 0.75 / 1024 / 1024).toFixed(2);
+        console.log(`画像圧縮: ${originalSize}MB → ${compressedSize}MB (${width}x${height})`);
+
+        resolve(compressedBase64);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 // ログイン画面
 const LoginScreen = ({ onSignIn }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -248,13 +296,15 @@ const BirthDateSetup = ({ onComplete }) => {
       return;
     }
 
-    // 画像をbase64に変換
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImage(reader.result);
+    try {
+      // 画像を圧縮してbase64に変換
+      const compressed = await compressImage(file, 800, 800, 0.85);
+      setProfileImage(compressed);
       setError('');
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('画像の圧縮に失敗しました:', error);
+      setError('画像の処理に失敗しました');
+    }
   };
 
   const handleSubmit = () => {
@@ -1507,11 +1557,14 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImage(reader.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // 画像を圧縮してbase64に変換
+      const compressed = await compressImage(file, 800, 800, 0.85);
+      setProfileImage(compressed);
+    } catch (error) {
+      console.error('画像の圧縮に失敗しました:', error);
+      alert('画像の処理に失敗しました');
+    }
   };
 
   const handleSubmit = () => {
@@ -1877,19 +1930,17 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
 
     const newFiles = [...selectedFiles, ...imageFiles];
     setSelectedFiles(newFiles);
-    
-    // プレビューを生成
-    const previewPromises = imageFiles.map(file => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
-    });
 
-    const newPreviews = await Promise.all(previewPromises);
-    const allPreviews = [...previews, ...newPreviews];
-    setPreviews(allPreviews);
+    // プレビューを生成（圧縮処理を適用）
+    try {
+      const previewPromises = imageFiles.map(file => compressImage(file));
+      const newPreviews = await Promise.all(previewPromises);
+      const allPreviews = [...previews, ...newPreviews];
+      setPreviews(allPreviews);
+    } catch (error) {
+      console.error('画像の圧縮に失敗しました:', error);
+      alert('⚠️ 画像の処理に失敗しました。別の画像を試してください。');
+    }
   };
 
   const removeImage = (index) => {
