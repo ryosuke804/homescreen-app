@@ -1,0 +1,25 @@
+# 依存関係
+node_modules/
+
+# 環境変数（重要！APIキーを含む）
+.env
+.env.local
+.env.*.local
+
+# ビルド出力
+dist/
+build/
+
+# ログ
+*.log
+npm-debug.log*
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
