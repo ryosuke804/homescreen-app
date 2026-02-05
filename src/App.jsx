@@ -1677,6 +1677,8 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
   const [mosaicAreas, setMosaicAreas] = useState([]);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [brushSize, setBrushSize] = useState(80); // モザイクブラシのサイズ
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const [showCursor, setShowCursor] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1734,6 +1736,27 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
 
     ctx.putImageData(imgData, x, y);
     console.log('モザイク画像データをキャンバスに適用完了');
+  };
+
+  // カーソル位置を更新
+  const handleMouseMove = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    setCursorPosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length > 0) {
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      setCursorPosition({
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      });
+    }
   };
 
   // タップ/クリックでモザイクを適用
@@ -1815,13 +1838,35 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
       </div>
 
       <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-        <canvas
-          ref={canvasRef}
-          className="max-w-full max-h-full border-2 border-gray-300 cursor-pointer"
-          onClick={handleTap}
-          onTouchEnd={handleTap}
-          style={{ touchAction: 'none' }}
-        />
+        <div className="relative">
+          <canvas
+            ref={canvasRef}
+            className="max-w-full max-h-full border-2 border-gray-300 cursor-none"
+            onClick={handleTap}
+            onTouchEnd={handleTap}
+            onMouseMove={handleMouseMove}
+            onTouchMove={handleTouchMove}
+            onMouseEnter={() => setShowCursor(true)}
+            onMouseLeave={() => setShowCursor(false)}
+            onTouchStart={() => setShowCursor(true)}
+            style={{ touchAction: 'none' }}
+          />
+          {/* ブラシカーソル */}
+          {showCursor && imageLoaded && (
+            <div
+              className="absolute pointer-events-none border-2 border-white rounded-full"
+              style={{
+                left: `${cursorPosition.x}px`,
+                top: `${cursorPosition.y}px`,
+                width: `${brushSize}px`,
+                height: `${brushSize}px`,
+                transform: 'translate(-50%, -50%)',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)'
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="bg-white p-4 space-y-3">
