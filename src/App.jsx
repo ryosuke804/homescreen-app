@@ -1676,8 +1676,8 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
   const canvasRef = useRef(null);
   const [mosaicAreas, setMosaicAreas] = useState([]);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [brushSize, setBrushSize] = useState(80); // モザイクブラシのサイズ
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const brushSize = 100; // 固定サイズ（モバイル最適化）
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0, size: 0 });
   const [showCursor, setShowCursor] = useState(false);
 
   useEffect(() => {
@@ -1738,13 +1738,15 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
     console.log('モザイク画像データをキャンバスに適用完了');
   };
 
-  // カーソル位置を更新
+  // カーソル位置を更新（表示座標とサイズを計算）
   const handleMouseMove = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
+    const scale = rect.width / canvas.width;
     setCursorPosition({
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
+      size: brushSize * scale // 表示サイズに合わせてスケール
     });
   };
 
@@ -1752,9 +1754,11 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
     if (e.touches.length > 0) {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
+      const scale = rect.width / canvas.width;
       setCursorPosition({
         x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
+        y: e.touches[0].clientY - rect.top,
+        size: brushSize * scale
       });
     }
   };
@@ -1852,14 +1856,14 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
             style={{ touchAction: 'none' }}
           />
           {/* ブラシカーソル */}
-          {showCursor && imageLoaded && (
+          {showCursor && imageLoaded && cursorPosition.size > 0 && (
             <div
               className="absolute pointer-events-none border-2 border-white rounded-full"
               style={{
                 left: `${cursorPosition.x}px`,
                 top: `${cursorPosition.y}px`,
-                width: `${brushSize}px`,
-                height: `${brushSize}px`,
+                width: `${cursorPosition.size}px`,
+                height: `${cursorPosition.size}px`,
                 transform: 'translate(-50%, -50%)',
                 boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
                 backgroundColor: 'rgba(255, 255, 255, 0.2)'
@@ -1873,27 +1877,6 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
         <p className="text-sm text-gray-600 text-center">
           モザイクをかけたい箇所をタップ
         </p>
-
-        {/* ブラシサイズ調整 */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">ブラシサイズ</span>
-            <span className="text-sm font-medium text-gray-900">{brushSize}px</span>
-          </div>
-          <input
-            type="range"
-            min="40"
-            max="200"
-            step="20"
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>小</span>
-            <span>大</span>
-          </div>
-        </div>
 
         <div className="flex gap-2">
           <button
