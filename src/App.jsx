@@ -1674,10 +1674,9 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
 // 画像編集コンポーネント（モザイク加工）
 const ImageEditor = ({ imageData, onSave, onCancel }) => {
   const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
   const [mosaicAreas, setMosaicAreas] = useState([]);
-  const [currentArea, setCurrentArea] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [brushSize, setBrushSize] = useState(80); // モザイクブラシのサイズ
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1737,26 +1736,11 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
     console.log('モザイク画像データをキャンバスに適用完了');
   };
 
-  // 描画を開始
-  const startDrawing = (e) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+  // タップ/クリックでモザイクを適用
+  const handleTap = (e) => {
+    if (!imageLoaded) return;
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
-    setIsDrawing(true);
-    setCurrentArea({ startX: x, startY: y, endX: x, endY: y });
-  };
-
-  // 描画中
-  const draw = (e) => {
-    if (!isDrawing || !currentArea) return;
+    e.preventDefault();
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -1766,51 +1750,21 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    const centerX = (clientX - rect.left) * scaleX;
+    const centerY = (clientY - rect.top) * scaleY;
 
-    setCurrentArea({ ...currentArea, endX: x, endY: y });
-
-    // プレビュー用に矩形を描画
-    redrawCanvas();
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(
-      currentArea.startX,
-      currentArea.startY,
-      x - currentArea.startX,
-      y - currentArea.startY
-    );
-  };
-
-  // 描画を終了してモザイクを適用
-  const endDrawing = () => {
-    if (!isDrawing || !currentArea) return;
-
-    setIsDrawing(false);
-
-    const width = Math.abs(currentArea.endX - currentArea.startX);
-    const height = Math.abs(currentArea.endY - currentArea.startY);
-
-    // 小さすぎる矩形は無視
-    if (width < 10 || height < 10) {
-      setCurrentArea(null);
-      redrawCanvas();
-      return;
-    }
-
+    // ブラシサイズに基づいてモザイク領域を計算
+    const halfSize = brushSize / 2;
     const area = {
-      x: Math.floor(Math.min(currentArea.startX, currentArea.endX)),
-      y: Math.floor(Math.min(currentArea.startY, currentArea.endY)),
-      width: Math.floor(width),
-      height: Math.floor(height)
+      x: Math.floor(Math.max(0, centerX - halfSize)),
+      y: Math.floor(Math.max(0, centerY - halfSize)),
+      width: Math.floor(Math.min(brushSize, canvas.width - (centerX - halfSize))),
+      height: Math.floor(Math.min(brushSize, canvas.height - (centerY - halfSize)))
     };
 
     console.log('モザイク適用:', area);
 
     // モザイクを適用
-    const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     try {
       applyMosaic(ctx, area.x, area.y, area.width, area.height);
@@ -1819,7 +1773,6 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
     } catch (error) {
       console.error('モザイク適用エラー:', error);
     }
-    setCurrentArea(null);
   };
 
   // キャンバスを再描画
@@ -1864,22 +1817,39 @@ const ImageEditor = ({ imageData, onSave, onCancel }) => {
       <div className="flex-1 overflow-auto flex items-center justify-center p-4">
         <canvas
           ref={canvasRef}
-          className="max-w-full max-h-full border-2 border-gray-300 cursor-crosshair"
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={endDrawing}
-          onMouseLeave={endDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={endDrawing}
+          className="max-w-full max-h-full border-2 border-gray-300 cursor-pointer"
+          onClick={handleTap}
+          onTouchEnd={handleTap}
           style={{ touchAction: 'none' }}
         />
       </div>
 
       <div className="bg-white p-4 space-y-3">
         <p className="text-sm text-gray-600 text-center">
-          指またはマウスでドラッグしてモザイクをかける範囲を選択
+          モザイクをかけたい箇所をタップ
         </p>
+
+        {/* ブラシサイズ調整 */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">ブラシサイズ</span>
+            <span className="text-sm font-medium text-gray-900">{brushSize}px</span>
+          </div>
+          <input
+            type="range"
+            min="40"
+            max="200"
+            step="20"
+            value={brushSize}
+            onChange={(e) => setBrushSize(Number(e.target.value))}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>小</span>
+            <span>大</span>
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={undo}
