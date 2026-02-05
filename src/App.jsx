@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, Home, User, LogOut, Eye, EyeOff, Trash2, Upload, Heart, MessageCircle, Bookmark, Bell } from 'lucide-react';
 
 // 通知タイプ
@@ -1671,241 +1671,12 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
   );
 };
 
-// 画像編集コンポーネント（モザイク加工）
-const ImageEditor = ({ imageData, onSave, onCancel }) => {
-  const canvasRef = useRef(null);
-  const [mosaicAreas, setMosaicAreas] = useState([]);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const brushSize = 100; // 固定サイズ（モバイル最適化）
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0, size: 0 });
-  const [showCursor, setShowCursor] = useState(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.onload = () => {
-      // キャンバスサイズを画像に合わせる
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      setImageLoaded(true);
-    };
-    img.src = imageData;
-  }, [imageData]);
-
-  // モザイク処理を適用
-  const applyMosaic = (ctx, x, y, width, height, pixelSize = 10) => {
-    console.log('applyMosaic呼び出し:', { x, y, width, height, pixelSize });
-    const imgData = ctx.getImageData(x, y, width, height);
-    const data = imgData.data;
-    console.log('画像データ取得成功:', data.length, 'bytes');
-
-    for (let py = 0; py < height; py += pixelSize) {
-      for (let px = 0; px < width; px += pixelSize) {
-        let r = 0, g = 0, b = 0, count = 0;
-
-        // ブロック内の平均色を計算
-        for (let dy = 0; dy < pixelSize && py + dy < height; dy++) {
-          for (let dx = 0; dx < pixelSize && px + dx < width; dx++) {
-            const i = ((py + dy) * width + (px + dx)) * 4;
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
-            count++;
-          }
-        }
-
-        r = Math.floor(r / count);
-        g = Math.floor(g / count);
-        b = Math.floor(b / count);
-
-        // ブロックを平均色で塗りつぶし
-        for (let dy = 0; dy < pixelSize && py + dy < height; dy++) {
-          for (let dx = 0; dx < pixelSize && px + dx < width; dx++) {
-            const i = ((py + dy) * width + (px + dx)) * 4;
-            data[i] = r;
-            data[i + 1] = g;
-            data[i + 2] = b;
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(imgData, x, y);
-    console.log('モザイク画像データをキャンバスに適用完了');
-  };
-
-  // カーソル位置を更新（表示座標とサイズを計算）
-  const handleMouseMove = (e) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scale = rect.width / canvas.width;
-    setCursorPosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      size: brushSize * scale // 表示サイズに合わせてスケール
-    });
-  };
-
-  const handleTouchMove = (e) => {
-    if (e.touches.length > 0) {
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      const scale = rect.width / canvas.width;
-      setCursorPosition({
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-        size: brushSize * scale
-      });
-    }
-  };
-
-  // タップ/クリックでモザイクを適用
-  const handleTap = (e) => {
-    if (!imageLoaded) return;
-
-    e.preventDefault();
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    const centerX = (clientX - rect.left) * scaleX;
-    const centerY = (clientY - rect.top) * scaleY;
-
-    // ブラシサイズに基づいてモザイク領域を計算
-    const halfSize = brushSize / 2;
-    const area = {
-      x: Math.floor(Math.max(0, centerX - halfSize)),
-      y: Math.floor(Math.max(0, centerY - halfSize)),
-      width: Math.floor(Math.min(brushSize, canvas.width - (centerX - halfSize))),
-      height: Math.floor(Math.min(brushSize, canvas.height - (centerY - halfSize)))
-    };
-
-    console.log('モザイク適用:', area);
-
-    // モザイクを適用
-    const ctx = canvas.getContext('2d');
-    try {
-      applyMosaic(ctx, area.x, area.y, area.width, area.height);
-      setMosaicAreas([...mosaicAreas, area]);
-      console.log('モザイク適用成功');
-    } catch (error) {
-      console.error('モザイク適用エラー:', error);
-    }
-  };
-
-  // キャンバスを再描画
-  const redrawCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0);
-      // 既存のモザイク領域を再適用
-      mosaicAreas.forEach(area => {
-        applyMosaic(ctx, area.x, area.y, area.width, area.height);
-      });
-    };
-    img.src = imageData;
-  };
-
-  // 一つ前のモザイクを取り消し
-  const undo = () => {
-    if (mosaicAreas.length === 0) return;
-    const newAreas = mosaicAreas.slice(0, -1);
-    setMosaicAreas(newAreas);
-    redrawCanvas();
-  };
-
-  // 保存
-  const handleSave = () => {
-    const canvas = canvasRef.current;
-    const editedImage = canvas.toDataURL('image/jpeg', 0.9);
-    onSave(editedImage);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex flex-col">
-      <div className="bg-white p-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold">モザイク加工</h2>
-        <button onClick={onCancel} className="text-gray-600 hover:text-gray-900">
-          ✕
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-        <div className="relative">
-          <canvas
-            ref={canvasRef}
-            className="max-w-full max-h-full border-2 border-gray-300 cursor-none"
-            onClick={handleTap}
-            onTouchEnd={handleTap}
-            onMouseMove={handleMouseMove}
-            onTouchMove={handleTouchMove}
-            onMouseEnter={() => setShowCursor(true)}
-            onMouseLeave={() => setShowCursor(false)}
-            onTouchStart={() => setShowCursor(true)}
-            style={{ touchAction: 'none' }}
-          />
-          {/* ブラシカーソル */}
-          {showCursor && imageLoaded && cursorPosition.size > 0 && (
-            <div
-              className="absolute pointer-events-none border-2 border-white rounded-full"
-              style={{
-                left: `${cursorPosition.x}px`,
-                top: `${cursorPosition.y}px`,
-                width: `${cursorPosition.size}px`,
-                height: `${cursorPosition.size}px`,
-                transform: 'translate(-50%, -50%)',
-                boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
-                backgroundColor: 'rgba(255, 255, 255, 0.2)'
-              }}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white p-4 space-y-3">
-        <p className="text-sm text-gray-600 text-center">
-          モザイクをかけたい箇所をタップ
-        </p>
-
-        <div className="flex gap-2">
-          <button
-            onClick={undo}
-            disabled={mosaicAreas.length === 0}
-            className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            一つ戻す
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!imageLoaded}
-            className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            完了
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // 画像アップロード画面（複数枚対応）
 const UploadScreen = ({ userId, onComplete, onCancel }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
@@ -1947,13 +1718,6 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
 
     setSelectedFiles(newFiles);
     setPreviews(newPreviews);
-  };
-
-  const handleEditSave = (editedImageData) => {
-    const newPreviews = [...previews];
-    newPreviews[editingIndex] = editedImageData;
-    setPreviews(newPreviews);
-    setEditingIndex(null);
   };
 
   const handleUpload = async () => {
@@ -2019,15 +1783,7 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
   const canUpload = selectedFiles.length > 0 && isConfirmed && !isUploading;
 
   return (
-    <>
-      {editingIndex !== null && (
-        <ImageEditor
-          imageData={previews[editingIndex]}
-          onSave={handleEditSave}
-          onCancel={() => setEditingIndex(null)}
-        />
-      )}
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 my-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">ホーム画面を更新</h2>
@@ -2071,24 +1827,14 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
                         className="w-full h-auto object-contain"
                         style={{ maxHeight: '300px' }}
                       />
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        <button
-                          onClick={() => setEditingIndex(index)}
-                          disabled={isUploading}
-                          className="bg-blue-500 text-white w-8 h-8 rounded-full hover:bg-blue-600 transition flex items-center justify-center shadow-lg disabled:opacity-50"
-                          title="モザイク加工"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          onClick={() => removeImage(index)}
-                          disabled={isUploading}
-                          className="bg-red-500 text-white w-8 h-8 rounded-full hover:bg-red-600 transition flex items-center justify-center shadow-lg disabled:opacity-50"
-                          title="削除"
-                        >
-                          ×
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => removeImage(index)}
+                        disabled={isUploading}
+                        className="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full hover:bg-red-600 transition flex items-center justify-center shadow-lg disabled:opacity-50"
+                        title="削除"
+                      >
+                        ×
+                      </button>
                     </div>
                     <div className="p-3 bg-gray-50">
                       <div className="flex items-center justify-between">
@@ -2159,7 +1905,6 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
         )}
       </div>
     </div>
-    </>
   );
 };
 
