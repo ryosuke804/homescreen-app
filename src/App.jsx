@@ -1617,26 +1617,28 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* ヘッダー */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-end">
-          {onNavigateToNotifications && (
-            <button
-              onClick={onNavigateToNotifications}
-              className="relative text-gray-600 hover:text-gray-900"
-              title="通知"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-          )}
+    <div className={`min-h-screen bg-gray-50 ${isOwnProfile ? 'pb-0' : 'pb-20'}`}>
+      {/* ヘッダー（他ユーザーのプロフィール表示時のみ） */}
+      {!isOwnProfile && (
+        <div className="bg-white border-b sticky top-0 z-10">
+          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-end">
+            {onNavigateToNotifications && (
+              <button
+                onClick={onNavigateToNotifications}
+                className="relative text-gray-600 hover:text-gray-900"
+                title="通知"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="max-w-2xl mx-auto px-3 py-3">
         {/* プロフィールヘッダー */}
@@ -1756,24 +1758,26 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
         </div>
       )}
 
-      {/* ボトムナビゲーション */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
-          <button
-            onClick={onBack}
-            className="flex flex-col items-center text-gray-500"
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-xs">ホーム</span>
-          </button>
-          <button
-            className="flex flex-col items-center text-purple-600"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs">マイページ</span>
-          </button>
+      {/* ボトムナビゲーション（他ユーザーのプロフィール表示時のみ） */}
+      {!isOwnProfile && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
+          <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
+            <button
+              onClick={onBack}
+              className="flex flex-col items-center text-gray-500"
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-xs">ホーム</span>
+            </button>
+            <button
+              className="flex flex-col items-center text-purple-600"
+            >
+              <User className="w-5 h-5" />
+              <span className="text-xs">マイページ</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -2074,7 +2078,7 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
         JSON.stringify(newScreen)
       );
 
-      alert('✨ 投稿しました！\n\nフィードで確認できます。');
+      alert('✨ 投稿しました！\n\n公開設定の場合、ギャラリーに表示されます。');
       onComplete();
     } catch (error) {
       console.error('Upload error:', error);
