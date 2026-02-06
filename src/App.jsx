@@ -633,7 +633,7 @@ const NotificationsScreen = ({ currentUserId, onNavigateToProfile, onBack }) => 
             className="flex flex-col items-center text-gray-500"
           >
             <User className="w-5 h-5" />
-            <span className="text-xs">プロフィール</span>
+            <span className="text-xs">マイページ</span>
           </button>
         </div>
       </div>
@@ -1458,57 +1458,52 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-3 py-3">
         {/* プロフィールヘッダー */}
-        <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
-          <button
-            onClick={() => isOwnProfile && setIsEditing(!isEditing)}
-            className={`flex items-start gap-4 mb-4 w-full text-left ${isOwnProfile ? 'hover:bg-gray-50 -m-2 p-2 rounded-xl transition' : ''}`}
-            disabled={!isOwnProfile}
-          >
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 overflow-hidden">
-              {user.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                (user.displayName || '?')[0].toUpperCase()
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              {isEditing ? (
-                <ProfileEditor user={user} onSave={handleUpdateProfile} onCancel={() => setIsEditing(false)} onSignOut={onSignOut} />
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {user.displayName || '名無し'}
-                    </h2>
-                    {isOwnProfile && (
-                      <span className="text-sm text-gray-400">✏️</span>
-                    )}
-                  </div>
-                  {formatAge(user.birthDate, user.agePublicSetting || 'AGE') && (
-                    <p className="text-gray-600 mb-2">
-                      {formatAge(user.birthDate, user.agePublicSetting || 'AGE')}
-                    </p>
-                  )}
-                  {user.bio && (
-                    <p className="text-gray-700 text-sm break-words">{user.bio}</p>
-                  )}
+        <div className="bg-white rounded-xl shadow-sm p-3 mb-3">
+          {isEditing ? (
+            <ProfileEditor user={user} onSave={handleUpdateProfile} onCancel={() => setIsEditing(false)} onSignOut={onSignOut} />
+          ) : (
+            <button
+              onClick={() => isOwnProfile && setIsEditing(!isEditing)}
+              className={`flex items-center gap-3 w-full text-left ${isOwnProfile ? 'hover:bg-gray-50 rounded-lg transition' : ''}`}
+              disabled={!isOwnProfile}
+            >
+              <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 overflow-hidden">
+                {user.profileImage ? (
+                  <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  (user.displayName || '?')[0].toUpperCase()
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-lg font-bold text-gray-900 truncate">
+                    {user.displayName || '名無し'}
+                  </h2>
                   {isOwnProfile && (
-                    <p className="text-xs text-gray-400 mt-2">タップして編集</p>
+                    <span className="text-xs text-gray-400">✏️</span>
                   )}
-                </>
-              )}
-            </div>
-          </button>
+                </div>
+                {formatAge(user.birthDate, user.agePublicSetting || 'AGE') && (
+                  <p className="text-xs text-gray-500">
+                    {formatAge(user.birthDate, user.agePublicSetting || 'AGE')}
+                  </p>
+                )}
+                {user.bio && (
+                  <p className="text-xs text-gray-600 truncate">{user.bio}</p>
+                )}
+              </div>
+            </button>
+          )}
         </div>
 
         {/* タブ */}
         {isOwnProfile && (
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-1.5 mb-3">
             <button
               onClick={() => setActiveTab('posts')}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition ${
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
                 activeTab === 'posts'
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -1518,7 +1513,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
             </button>
             <button
               onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition ${
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
                 activeTab === 'saved'
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -1683,7 +1678,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
             className="flex flex-col items-center text-purple-600"
           >
             <User className="w-5 h-5" />
-            <span className="text-xs">プロフィール</span>
+            <span className="text-xs">マイページ</span>
           </button>
         </div>
       </div>
@@ -1697,6 +1692,7 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
   const [bio, setBio] = useState(user.bio || '');
   const [agePublicSetting, setAgePublicSetting] = useState(user.agePublicSetting || 'AGE');
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleImageSelect = async (e) => {
     const file = e.target.files[0];
@@ -1726,35 +1722,47 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
   };
 
   return (
-    <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+      {/* 右上✕ボタン */}
+      <div className="flex justify-end -mt-1 -mr-1">
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-lg"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">表示名 <span className="text-red-500">*</span></label>
+        <label className="block text-xs font-medium text-gray-700 mb-1">表示名 <span className="text-red-500">*</span></label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={20}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">自己紹介</label>
+        <label className="block text-xs font-medium text-gray-700 mb-1">自己紹介</label>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={100}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+          rows={2}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">年齢表示</label>
+        <label className="block text-xs font-medium text-gray-700 mb-1">年齢表示</label>
         <select
           value={agePublicSetting}
           onChange={(e) => setAgePublicSetting(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         >
           <option value="AGE">年齢を表示（例：29歳）</option>
           <option value="DECADE">年代を表示（例：20代）</option>
@@ -1763,16 +1771,16 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">プロフィール画像</label>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden">
+        <label className="block text-xs font-medium text-gray-700 mb-1">プロフィール画像</label>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-lg font-bold overflow-hidden">
             {profileImage ? (
               <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               displayName ? displayName[0].toUpperCase() : '?'
             )}
           </div>
-          <label className="flex-1 bg-gray-100 text-gray-700 py-2 px-3 rounded-lg text-sm font-medium hover:bg-gray-200 transition cursor-pointer text-center">
+          <label className="flex-1 bg-gray-100 text-gray-700 py-1.5 px-3 rounded-lg text-xs font-medium hover:bg-gray-200 transition cursor-pointer text-center">
             画像を変更
             <input
               type="file"
@@ -1784,37 +1792,37 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition"
-          >
-            キャンセル
-          </button>
-        )}
-        <button
-          onClick={handleSubmit}
-          className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-purple-700 transition"
-        >
-          保存
-        </button>
-      </div>
+      <button
+        onClick={handleSubmit}
+        className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-purple-700 transition"
+      >
+        保存
+      </button>
 
-      {/* ログアウトボタン */}
+      {/* その他の設定 */}
       {onSignOut && (
-        <div className="pt-4 border-t">
+        <div className="pt-2">
           <button
-            onClick={() => {
-              if (confirm('ログアウトしますか？')) {
-                onSignOut();
-              }
-            }}
-            className="w-full bg-red-50 text-red-600 py-2 px-4 rounded-lg font-medium hover:bg-red-100 transition flex items-center justify-center gap-2"
+            onClick={() => setShowSettings(!showSettings)}
+            className="w-full text-xs text-gray-500 hover:text-gray-700 py-1.5 transition flex items-center justify-center gap-1"
           >
-            <LogOut className="w-4 h-4" />
-            ログアウト
+            その他の設定 {showSettings ? '▲' : '▼'}
           </button>
+          {showSettings && (
+            <div className="mt-2 bg-gray-50 rounded-lg p-3">
+              <button
+                onClick={() => {
+                  if (confirm('ログアウトしますか？')) {
+                    onSignOut();
+                  }
+                }}
+                className="w-full text-red-500 text-xs py-1.5 hover:text-red-600 transition flex items-center justify-center gap-1"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                ログアウト
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2273,7 +2281,7 @@ const MainApp = ({ currentUser, signIn, signOut }) => {
             }`}
           >
             <User className="w-5 h-5" />
-            <span className="text-xs">プロフィール</span>
+            <span className="text-xs">マイページ</span>
           </button>
         </div>
       </div>
