@@ -890,18 +890,26 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
 
       {/* 詳細モーダル */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setSelectedItem(null)}>
-          <div className="max-w-lg w-full my-8" onClick={(e) => e.stopPropagation()}>
-            <FeedItem
-              item={selectedItem}
-              currentUserId={currentUserId}
-              onNavigateToProfile={(userId) => { setSelectedItem(null); onNavigateToProfile(userId); }}
-              onLike={(screenId, userId) => { handleLike(screenId, userId); }}
-              onSave={(screenId, userId) => { handleSave(screenId, userId); }}
-              showComments={showComments === selectedItem.id}
-              onToggleComments={() => setShowComments(showComments === selectedItem.id ? null : selectedItem.id)}
-              onClose={() => setSelectedItem(null)}
-            />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onClick={() => setSelectedItem(null)}>
+          {/* 右上の✕ボタン */}
+          <button
+            onClick={() => setSelectedItem(null)}
+            className="fixed top-4 right-4 z-[60] bg-black bg-opacity-50 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-opacity-70 transition"
+          >
+            ✕
+          </button>
+          <div className="flex items-center justify-center min-h-full p-4">
+            <div className="max-w-lg w-full my-8" onClick={(e) => e.stopPropagation()}>
+              <FeedItem
+                item={selectedItem}
+                currentUserId={currentUserId}
+                onNavigateToProfile={(userId) => { setSelectedItem(null); onNavigateToProfile(userId); }}
+                onLike={(screenId, userId) => { handleLike(screenId, userId); }}
+                onSave={(screenId, userId) => { handleSave(screenId, userId); }}
+                showComments={showComments === selectedItem.id}
+                onToggleComments={() => setShowComments(showComments === selectedItem.id ? null : selectedItem.id)}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -972,7 +980,7 @@ const FeedCard = ({ item, currentUserId, onNavigateToProfile, onLike, onTap }) =
 };
 
 // フィードアイテムコンポーネント（詳細表示・複数画像対応）
-const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, showComments, onToggleComments, onClose }) => {
+const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, showComments, onToggleComments }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState(item.comments || []);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -1054,14 +1062,6 @@ const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, sh
             )}
           </div>
         </button>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
-          >
-            ✕
-          </button>
-        )}
       </div>
       
       {/* 画像表示エリア（複数画像対応） */}
@@ -1529,84 +1529,115 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
         )}
 
         {/* ギャラリー */}
-        <div className="space-y-4">
-          {activeTab === 'posts' ? (
-            screens.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl">
-                <p className="text-gray-500">まだホーム画面がありません</p>
-              </div>
-            ) : (
-              screens.map((screen) => (
-              <div key={screen.id} className="bg-white rounded-2xl shadow-md overflow-hidden">
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {screen.isCurrent && (
-                      <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2 py-1 rounded">
-                        最新
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-500">
-                      {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
-                    </span>
-                  </div>
-                  
-                  {isOwnProfile && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleVisibility(screen.id, screen.visibility)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                        title={screen.visibility === 'PUBLIC' ? '公開中' : '非公開'}
-                      >
-                        {screen.visibility === 'PUBLIC' ? (
-                          <Eye className="w-5 h-5 text-purple-600" />
-                        ) : (
-                          <EyeOff className="w-5 h-5 text-gray-400" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(screen.id, screen.isCurrent)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition"
-                        title="削除"
-                      >
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <ProfileImageGallery screen={screen} />
-              </div>
-            ))
-            )
+        {activeTab === 'posts' ? (
+          screens.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl">
+              <p className="text-gray-500">まだホーム画面がありません</p>
+            </div>
           ) : (
-            savedScreens.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl">
-                <p className="text-gray-500">保存した投稿がありません</p>
-              </div>
-            ) : (
-              savedScreens.map((screen) => (
-                <div key={screen.id} className="bg-white rounded-2xl shadow-md overflow-hidden">
-                  <div className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
-                      {screen.user?.profileImage ? (
-                        <img src={screen.user.profileImage} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                        (screen.user?.displayName || '?')[0].toUpperCase()
+            <div className="grid grid-cols-2 gap-3">
+              {screens.map((screen) => {
+                const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
+                return (
+                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden relative">
+                    {/* サムネイル */}
+                    <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
+                      <img
+                        src={images[0]}
+                        alt="Home screen"
+                        className="w-full h-full object-cover"
+                      />
+                      {images.length > 1 && (
+                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
+                          +{images.length - 1}
+                        </div>
+                      )}
+                      {screen.isCurrent && (
+                        <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-medium px-1.5 py-0.5 rounded">
+                          最新
+                        </div>
+                      )}
+                      {screen.visibility === 'PRIVATE' && (
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <EyeOff className="w-3 h-3" /> 非公開
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <div className="font-medium text-gray-900">{screen.user?.displayName || '名無し'}</div>
-                      <div className="text-sm text-gray-500">
+                    {/* 情報 */}
+                    <div className="p-2 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
                         {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
-                      </div>
+                      </span>
+                      {isOwnProfile && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleVisibility(screen.id, screen.visibility)}
+                            className="p-1 hover:bg-gray-100 rounded transition"
+                          >
+                            {screen.visibility === 'PUBLIC' ? (
+                              <Eye className="w-4 h-4 text-purple-600" />
+                            ) : (
+                              <EyeOff className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(screen.id, screen.isCurrent)}
+                            className="p-1 hover:bg-red-50 rounded transition"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <ProfileImageGallery screen={screen} />
-                </div>
-              ))
-            )
-          )}
-        </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          savedScreens.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl">
+              <p className="text-gray-500">保存した投稿がありません</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {savedScreens.map((screen) => {
+                const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
+                return (
+                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
+                      <img
+                        src={images[0]}
+                        alt="Home screen"
+                        className="w-full h-full object-cover"
+                      />
+                      {images.length > 1 && (
+                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
+                          +{images.length - 1}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
+                          {screen.user?.profileImage ? (
+                            <img src={screen.user.profileImage} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            (screen.user?.displayName || '?')[0].toUpperCase()
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-900 truncate">{screen.user?.displayName || '名無し'}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
       </div>
 
       {/* ボトムナビゲーション */}
