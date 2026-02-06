@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Home, User, LogOut, Eye, EyeOff, Trash2, Upload, Heart, MessageCircle, Bookmark, Bell } from 'lucide-react';
+import { Camera, Home, User, LogOut, Eye, EyeOff, Trash2, Upload, Heart, MessageCircle, Bookmark, Bell, Clock, Grid3X3 } from 'lucide-react';
 
 // 通知タイプ
 const NOTIFICATION_TYPES = {
@@ -667,8 +667,194 @@ const NotificationsScreen = ({ currentUserId, onNavigateToProfile, onBack }) => 
   );
 };
 
-// フィード画面
-const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
+// ヒストリー画面（自分のホーム画面の履歴）
+const HistoryScreen = ({ currentUserId, onUpload }) => {
+  const [screens, setScreens] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedScreen, setSelectedScreen] = useState(null);
+
+  useEffect(() => {
+    loadScreens();
+  }, []);
+
+  const loadScreens = async () => {
+    setIsLoading(true);
+    try {
+      const screensResult = await window.storage.list(`screen:${currentUserId}:`);
+      if (!screensResult?.keys) {
+        setScreens([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const screenData = [];
+      for (const key of screensResult.keys) {
+        if (key.endsWith(':current')) continue;
+        try {
+          const result = await window.storage.get(key);
+          if (result?.value) {
+            screenData.push(JSON.parse(result.value));
+          }
+        } catch (error) {
+          console.error('Error loading screen:', error);
+        }
+      }
+
+      screenData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setScreens(screenData);
+    } catch (error) {
+      console.error('Error loading screens:', error);
+    }
+    setIsLoading(false);
+  };
+
+  const handleToggleVisibility = async (screenId, currentVisibility) => {
+    const newVisibility = currentVisibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+    const idx = screens.findIndex(s => s.id === screenId);
+    if (idx === -1) return;
+
+    const updatedScreen = { ...screens[idx], visibility: newVisibility };
+    try {
+      await window.storage.set(`screen:${currentUserId}:${screenId}`, JSON.stringify(updatedScreen));
+      if (updatedScreen.isCurrent) {
+        await window.storage.set(`screen:${currentUserId}:current`, JSON.stringify(updatedScreen));
+      }
+      const newScreens = [...screens];
+      newScreens[idx] = updatedScreen;
+      setScreens(newScreens);
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+    }
+  };
+
+  const handleDelete = async (screenId, isCurrent) => {
+    if (!confirm('本当に削除しますか？')) return;
+    try {
+      await window.storage.delete(`screen:${currentUserId}:${screenId}`);
+      if (isCurrent) {
+        await window.storage.delete(`screen:${currentUserId}:current`);
+      }
+      setScreens(screens.filter(s => s.id !== screenId));
+    } catch (error) {
+      console.error('Error deleting screen:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-600">読み込み中...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-3 pb-24">
+      {screens.length === 0 ? (
+        <div className="text-center py-16">
+          <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 mb-2">まだ記録がありません</p>
+          <p className="text-sm text-gray-400">ホーム画面のスクリーンショットを記録しましょう</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 pt-3">
+          {screens.map((screen) => {
+            const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
+            return (
+              <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer" onClick={() => setSelectedScreen(screen)}>
+                <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
+                  <img src={images[0]} alt="Home screen" className="w-full h-full object-cover" />
+                  {images.length > 1 && (
+                    <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
+                      +{images.length - 1}
+                    </div>
+                  )}
+                  {screen.isCurrent && (
+                    <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-medium px-1.5 py-0.5 rounded">
+                      最新
+                    </div>
+                  )}
+                  {screen.visibility === 'PRIVATE' && (
+                    <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <EyeOff className="w-3 h-3" /> 非公開
+                    </div>
+                  )}
+                </div>
+                <div className="p-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-500">
+                    {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
+                      className="p-1 hover:bg-gray-100 rounded transition"
+                    >
+                      {screen.visibility === 'PUBLIC' ? (
+                        <Eye className="w-4 h-4 text-purple-600" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-gray-400" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
+                      className="p-1 hover:bg-red-50 rounded transition"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 拡大モーダル */}
+      {selectedScreen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onClick={() => setSelectedScreen(null)}>
+          <button
+            onClick={() => setSelectedScreen(null)}
+            className="fixed top-4 right-4 z-[60] bg-black bg-opacity-50 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-opacity-70 transition"
+          >
+            ✕
+          </button>
+          <div className="flex items-center justify-center min-h-full p-4">
+            <div className="max-w-lg w-full my-8" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+                <ProfileImageGallery screen={selectedScreen} />
+                <div className="p-3">
+                  {selectedScreen.caption && (
+                    <p className="text-sm text-gray-700 mb-2">{selectedScreen.caption}</p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      {new Date(selectedScreen.createdAt).toLocaleDateString('ja-JP')}
+                    </span>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>❤️ {(selectedScreen.likes || []).length}</span>
+                      <span>💬 {(selectedScreen.comments || []).length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 投稿FABボタン */}
+      <button
+        onClick={onUpload}
+        className="fixed bottom-20 right-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg hover:bg-purple-700 transition flex items-center justify-center z-10"
+      >
+        <Upload className="w-5 h-5" />
+      </button>
+    </div>
+  );
+};
+
+// ギャラリー画面（みんなのホーム画面）
+const FeedScreen = ({ currentUserId, onNavigateToProfile }) => {
   const [feed, setFeed] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showComments, setShowComments] = useState(null);
@@ -940,12 +1126,6 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
         </div>
       )}
 
-      <button
-        onClick={onUpload}
-        className="fixed bottom-20 right-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg hover:bg-purple-700 transition flex items-center justify-center z-10"
-      >
-        <Upload className="w-5 h-5" />
-      </button>
     </div>
   );
 };
@@ -1220,6 +1400,10 @@ const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, sh
           </div>
         )}
 
+        {item.caption && (
+          <p className="text-sm text-gray-700">{item.caption}</p>
+        )}
+
         <p className="text-xs text-gray-500">
           {new Date(item.createdAt).toLocaleDateString('ja-JP', {
             year: 'numeric',
@@ -1288,11 +1472,9 @@ const ProfileImageGallery = ({ screen }) => {
 // プロフィール画面
 const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, onDeleteAccount, onNavigateToNotifications, unreadCount }) => {
   const [user, setUser] = useState(null);
-  const [screens, setScreens] = useState([]);
   const [savedScreens, setSavedScreens] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'saved'
   const [selectedScreen, setSelectedScreen] = useState(null);
 
   const isOwnProfile = userId === currentUserId;
@@ -1306,36 +1488,6 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
       const userResult = await window.storage.get(`user:${userId}`);
       if (userResult?.value) {
         setUser(JSON.parse(userResult.value));
-      }
-
-      // 全バージョンを取得
-      const screensResult = await window.storage.list(`screen:${userId}:`);
-      if (screensResult?.keys) {
-        const screenData = [];
-        for (const key of screensResult.keys) {
-          if (key.endsWith(':current')) continue; // currentは別で取得
-          try {
-            const result = await window.storage.get(key);
-            if (result?.value) {
-              const screen = JSON.parse(result.value);
-              // 自分のプロフィールか、公開されているもののみ表示
-              if (isOwnProfile || screen.visibility === 'PUBLIC') {
-                screenData.push(screen);
-              }
-            }
-          } catch (error) {
-            console.error('Error loading screen:', error);
-          }
-        }
-        
-        // Currentを先頭に
-        screenData.sort((a, b) => {
-          if (a.isCurrent) return -1;
-          if (b.isCurrent) return 1;
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        });
-        
-        setScreens(screenData);
       }
 
       // 保存済み投稿を取得（自分のプロフィールの場合のみ）
@@ -1386,53 +1538,6 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
       console.error('Error loading profile:', error);
     }
     setIsLoading(false);
-  };
-
-  const handleToggleVisibility = async (screenId, currentVisibility) => {
-    const newVisibility = currentVisibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
-    const screenIndex = screens.findIndex(s => s.id === screenId);
-    if (screenIndex === -1) return;
-
-    const updatedScreen = { ...screens[screenIndex], visibility: newVisibility };
-    
-    try {
-      await window.storage.set(
-        `screen:${userId}:${screenId}`,
-        JSON.stringify(updatedScreen)
-      );
-      
-      // Currentの場合は別途更新
-      if (updatedScreen.isCurrent) {
-        await window.storage.set(
-          `screen:${userId}:current`,
-          JSON.stringify(updatedScreen)
-        );
-      }
-      
-      const newScreens = [...screens];
-      newScreens[screenIndex] = updatedScreen;
-      setScreens(newScreens);
-      
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error('Error updating visibility:', error);
-    }
-  };
-
-  const handleDelete = async (screenId, isCurrent) => {
-    if (!confirm('本当に削除しますか？')) return;
-
-    try {
-      await window.storage.delete(`screen:${userId}:${screenId}`);
-      if (isCurrent) {
-        await window.storage.delete(`screen:${userId}:current`);
-      }
-      
-      setScreens(screens.filter(s => s.id !== screenId));
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error('Error deleting screen:', error);
-    }
   };
 
   const handleUpdateProfile = async (updates) => {
@@ -1524,100 +1629,11 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
           )}
         </div>
 
-        {/* タブ */}
+        {/* 保存済み */}
         {isOwnProfile && (
-          <div className="flex gap-1.5 mb-3">
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
-                activeTab === 'posts'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              投稿 ({screens.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
-                activeTab === 'saved'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              保存済み ({savedScreens.length})
-            </button>
-          </div>
-        )}
-
-        {/* ギャラリー */}
-        {activeTab === 'posts' ? (
-          screens.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl">
-              <p className="text-gray-500">まだホーム画面がありません</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {screens.map((screen) => {
-                const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
-                return (
-                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden relative cursor-pointer" onClick={() => setSelectedScreen(screen)}>
-                    {/* サムネイル */}
-                    <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
-                      <img
-                        src={images[0]}
-                        alt="Home screen"
-                        className="w-full h-full object-cover"
-                      />
-                      {images.length > 1 && (
-                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
-                          +{images.length - 1}
-                        </div>
-                      )}
-                      {screen.isCurrent && (
-                        <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-medium px-1.5 py-0.5 rounded">
-                          最新
-                        </div>
-                      )}
-                      {screen.visibility === 'PRIVATE' && (
-                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <EyeOff className="w-3 h-3" /> 非公開
-                        </div>
-                      )}
-                    </div>
-                    {/* 情報 */}
-                    <div className="p-2 flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
-                        {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
-                      </span>
-                      {isOwnProfile && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
-                            className="p-1 hover:bg-gray-100 rounded transition"
-                          >
-                            {screen.visibility === 'PUBLIC' ? (
-                              <Eye className="w-4 h-4 text-purple-600" />
-                            ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
-                            )}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
-                            className="p-1 hover:bg-red-50 rounded transition"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
-        ) : (
-          savedScreens.length === 0 ? (
+          <>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">保存済み ({savedScreens.length})</h3>
+            {savedScreens.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-2xl">
               <p className="text-gray-500">保存した投稿がありません</p>
             </div>
@@ -1658,11 +1674,12 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
                 );
               })}
             </div>
-          )
+          )}
+          </>
         )}
       </div>
 
-      {/* 投稿拡大モーダル */}
+      {/* 保存済み拡大モーダル */}
       {selectedScreen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onClick={() => setSelectedScreen(null)}>
           <button
@@ -1912,6 +1929,7 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
   const [previews, setPreviews] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [caption, setCaption] = useState('');
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
@@ -1986,7 +2004,8 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
       const newScreen = {
         id: `screen_${Date.now()}`,
         userId,
-        images: previews, // 複数画像の配列
+        images: previews,
+        caption: caption.trim(),
         createdAt: new Date().toISOString(),
         visibility: 'PUBLIC',
         isCurrent: true,
@@ -2082,6 +2101,22 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
               ))}
             </div>
 
+            {/* コメント入力 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                コメント（こだわりポイントなど）
+              </label>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="このホーム画面のこだわりや思い出を記録..."
+                maxLength={200}
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+              />
+              <p className="text-xs text-gray-400 text-right mt-0.5">{caption.length}/200</p>
+            </div>
+
             {/* 確認チェックボックス */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -2156,7 +2191,7 @@ const App = () => {
 
 const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
   const [userProfile, setUserProfile] = useState(null);
-  const [currentScreen, setCurrentScreen] = useState('feed');
+  const [currentScreen, setCurrentScreen] = useState('history');
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -2267,25 +2302,24 @@ const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
           setCurrentScreen('profile');
         }}
         onBack={() => {
-          setCurrentScreen('feed');
+          setCurrentScreen('history');
           loadUnreadCount();
         }}
       />
     );
   }
 
-  if (currentScreen === 'profile' && selectedProfileId) {
+  // 他ユーザーのプロフィール表示（ギャラリーからの遷移）
+  if (currentScreen === 'profile' && selectedProfileId && selectedProfileId !== currentUser.id) {
     return (
       <ProfileScreen
         userId={selectedProfileId}
         currentUserId={currentUser.id}
         onBack={() => {
-          setCurrentScreen('feed');
+          setCurrentScreen('gallery');
           setSelectedProfileId(null);
         }}
         onRefresh={() => setRefreshKey(prev => prev + 1)}
-        onSignOut={signOut}
-        onDeleteAccount={() => deleteAccount(currentUser.id)}
         onNavigateToNotifications={() => {
           setCurrentScreen('notifications');
           setRefreshKey(prev => prev + 1);
@@ -2299,10 +2333,10 @@ const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
     <div className="min-h-screen bg-gray-50">
       {/* トップバー */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Camera className="w-6 h-6 text-purple-600" />
-            <h1 className="text-xl font-bold text-gray-900">HomeScreen</h1>
+            <Camera className="w-5 h-5 text-purple-600" />
+            <h1 className="text-lg font-bold text-gray-900">HomeScreen</h1>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -2325,37 +2359,67 @@ const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
       </div>
 
       {/* メインコンテンツ */}
-      <FeedScreen
-        key={refreshKey}
-        currentUserId={currentUser.id}
-        onNavigateToProfile={(userId) => {
-          setSelectedProfileId(userId);
-          setCurrentScreen('profile');
-        }}
-        onUpload={() => setShowUpload(true)}
-      />
+      {currentScreen === 'history' && (
+        <HistoryScreen
+          key={`history-${refreshKey}`}
+          currentUserId={currentUser.id}
+          onUpload={() => setShowUpload(true)}
+        />
+      )}
+
+      {currentScreen === 'gallery' && (
+        <FeedScreen
+          key={`gallery-${refreshKey}`}
+          currentUserId={currentUser.id}
+          onNavigateToProfile={(userId) => {
+            setSelectedProfileId(userId);
+            setCurrentScreen('profile');
+          }}
+        />
+      )}
+
+      {currentScreen === 'mypage' && (
+        <ProfileScreen
+          key={`mypage-${refreshKey}`}
+          userId={currentUser.id}
+          currentUserId={currentUser.id}
+          onBack={() => setCurrentScreen('history')}
+          onRefresh={() => setRefreshKey(prev => prev + 1)}
+          onSignOut={signOut}
+          onDeleteAccount={() => deleteAccount(currentUser.id)}
+          onNavigateToNotifications={() => {
+            setCurrentScreen('notifications');
+            setRefreshKey(prev => prev + 1);
+          }}
+          unreadCount={unreadCount}
+        />
+      )}
 
       {/* ボトムナビゲーション */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
         <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
           <button
-            onClick={() => setCurrentScreen('feed')}
+            onClick={() => setCurrentScreen('history')}
             className={`flex flex-col items-center ${
-              currentScreen === 'feed' ? 'text-purple-600' : 'text-gray-500'
+              currentScreen === 'history' ? 'text-purple-600' : 'text-gray-500'
             }`}
           >
-            <Home className="w-5 h-5" />
-            <span className="text-xs">ホーム</span>
+            <Clock className="w-5 h-5" />
+            <span className="text-xs">ヒストリー</span>
           </button>
           <button
-            onClick={() => {
-              setSelectedProfileId(currentUser.id);
-              setCurrentScreen('profile');
-            }}
+            onClick={() => setCurrentScreen('gallery')}
             className={`flex flex-col items-center ${
-              currentScreen === 'profile' && selectedProfileId === currentUser.id
-                ? 'text-purple-600'
-                : 'text-gray-500'
+              currentScreen === 'gallery' ? 'text-purple-600' : 'text-gray-500'
+            }`}
+          >
+            <Grid3X3 className="w-5 h-5" />
+            <span className="text-xs">ギャラリー</span>
+          </button>
+          <button
+            onClick={() => setCurrentScreen('mypage')}
+            className={`flex flex-col items-center ${
+              currentScreen === 'mypage' ? 'text-purple-600' : 'text-gray-500'
             }`}
           >
             <User className="w-5 h-5" />
