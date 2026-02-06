@@ -620,19 +620,19 @@ const NotificationsScreen = ({ currentUserId, onNavigateToProfile, onBack }) => 
 
       {/* ボトムナビゲーション */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-around">
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
           <button
             onClick={onBack}
-            className="flex flex-col items-center gap-1 text-gray-500"
+            className="flex flex-col items-center text-gray-500"
           >
-            <Home className="w-6 h-6" />
+            <Home className="w-5 h-5" />
             <span className="text-xs">ホーム</span>
           </button>
           <button
             onClick={() => onNavigateToProfile(currentUserId)}
-            className="flex flex-col items-center gap-1 text-gray-500"
+            className="flex flex-col items-center text-gray-500"
           >
-            <User className="w-6 h-6" />
+            <User className="w-5 h-5" />
             <span className="text-xs">プロフィール</span>
           </button>
         </div>
@@ -1267,6 +1267,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'saved'
+  const [selectedScreen, setSelectedScreen] = useState(null);
 
   const isOwnProfile = userId === currentUserId;
 
@@ -1539,7 +1540,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
               {screens.map((screen) => {
                 const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
                 return (
-                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden relative">
+                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden relative cursor-pointer" onClick={() => setSelectedScreen(screen)}>
                     {/* サムネイル */}
                     <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
                       <img
@@ -1571,7 +1572,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
                       {isOwnProfile && (
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleToggleVisibility(screen.id, screen.visibility)}
+                            onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
                             className="p-1 hover:bg-gray-100 rounded transition"
                           >
                             {screen.visibility === 'PUBLIC' ? (
@@ -1581,7 +1582,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
                             )}
                           </button>
                           <button
-                            onClick={() => handleDelete(screen.id, screen.isCurrent)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
                             className="p-1 hover:bg-red-50 rounded transition"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
@@ -1604,7 +1605,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
               {savedScreens.map((screen) => {
                 const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
                 return (
-                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                  <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer" onClick={() => setSelectedScreen(screen)}>
                     <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
                       <img
                         src={images[0]}
@@ -1640,20 +1641,48 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
         )}
       </div>
 
+      {/* 投稿拡大モーダル */}
+      {selectedScreen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onClick={() => setSelectedScreen(null)}>
+          <button
+            onClick={() => setSelectedScreen(null)}
+            className="fixed top-4 right-4 z-[60] bg-black bg-opacity-50 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-opacity-70 transition"
+          >
+            ✕
+          </button>
+          <div className="flex items-center justify-center min-h-full p-4">
+            <div className="max-w-lg w-full my-8" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+                <ProfileImageGallery screen={selectedScreen} />
+                <div className="p-3 flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    {new Date(selectedScreen.createdAt).toLocaleDateString('ja-JP')}
+                  </span>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>❤️ {(selectedScreen.likes || []).length}</span>
+                    <span>💬 {(selectedScreen.comments || []).length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ボトムナビゲーション */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-around">
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
           <button
             onClick={onBack}
-            className="flex flex-col items-center gap-1 text-gray-500"
+            className="flex flex-col items-center text-gray-500"
           >
-            <Home className="w-6 h-6" />
+            <Home className="w-5 h-5" />
             <span className="text-xs">ホーム</span>
           </button>
           <button
-            className="flex flex-col items-center gap-1 text-purple-600"
+            className="flex flex-col items-center text-purple-600"
           >
-            <User className="w-6 h-6" />
+            <User className="w-5 h-5" />
             <span className="text-xs">プロフィール</span>
           </button>
         </div>
@@ -2222,14 +2251,14 @@ const MainApp = ({ currentUser, signIn, signOut }) => {
 
       {/* ボトムナビゲーション */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-around">
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-around">
           <button
             onClick={() => setCurrentScreen('feed')}
-            className={`flex flex-col items-center gap-1 ${
+            className={`flex flex-col items-center ${
               currentScreen === 'feed' ? 'text-purple-600' : 'text-gray-500'
             }`}
           >
-            <Home className="w-6 h-6" />
+            <Home className="w-5 h-5" />
             <span className="text-xs">ホーム</span>
           </button>
           <button
@@ -2237,13 +2266,13 @@ const MainApp = ({ currentUser, signIn, signOut }) => {
               setSelectedProfileId(currentUser.id);
               setCurrentScreen('profile');
             }}
-            className={`flex flex-col items-center gap-1 ${
+            className={`flex flex-col items-center ${
               currentScreen === 'profile' && selectedProfileId === currentUser.id
                 ? 'text-purple-600'
                 : 'text-gray-500'
             }`}
           >
-            <User className="w-6 h-6" />
+            <User className="w-5 h-5" />
             <span className="text-xs">プロフィール</span>
           </button>
         </div>
