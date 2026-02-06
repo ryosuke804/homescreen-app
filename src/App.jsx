@@ -680,26 +680,14 @@ const HistoryScreen = ({ currentUserId, onUpload }) => {
   const loadScreens = async () => {
     setIsLoading(true);
     try {
-      const screensResult = await window.storage.list(`screen:${currentUserId}:`);
-      if (!screensResult?.keys) {
-        setScreens([]);
-        setIsLoading(false);
-        return;
-      }
-
+      const screensData = await window.storage.listWithValues(`screen:${currentUserId}:`);
       const screenData = [];
-      for (const key of screensResult.keys) {
+      for (const { key, value } of (screensData?.items || [])) {
         if (key.endsWith(':current')) continue;
         try {
-          const result = await window.storage.get(key);
-          if (result?.value) {
-            screenData.push(JSON.parse(result.value));
-          }
-        } catch (error) {
-          console.error('Error loading screen:', error);
-        }
+          screenData.push(JSON.parse(value));
+        } catch (e) {}
       }
-
       screenData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setScreens(screenData);
     } catch (error) {
@@ -925,51 +913,47 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile }) => {
     }
 
     try {
-      const usersResult = await window.storage.list('user:');
-      if (!usersResult?.keys) {
+      // 全ユーザーと全スクリーンを2回のFirestoreコールで一括取得
+      const [usersData, screensData] = await Promise.all([
+        window.storage.listWithValues('user:'),
+        window.storage.listWithValues('screen:')
+      ]);
+
+      if (!usersData?.items?.length) {
         setFeed([]);
         setIsLoading(false);
         setIsRefreshing(false);
         return;
       }
 
-      const feedItems = [];
-
-      for (const userKey of usersResult.keys) {
+      // ユーザーマップを構築
+      const userMap = {};
+      for (const { value } of usersData.items) {
         try {
-          const userResult = await window.storage.get(userKey);
-          if (!userResult?.value) continue;
+          const user = JSON.parse(value);
+          userMap[user.id] = user;
+        } catch (e) {}
+      }
 
-          const user = JSON.parse(userResult.value);
-
-          // このユーザーの全スクリーンを取得
-          const screensResult = await window.storage.list(`screen:${user.id}:`);
-          if (!screensResult?.keys) continue;
-
-          for (const screenKey of screensResult.keys) {
-            if (screenKey.endsWith(':current')) continue; // currentは個別キーと重複するのでスキップ
-            try {
-              const screenResult = await window.storage.get(screenKey);
-              if (!screenResult?.value) continue;
-              const screen = JSON.parse(screenResult.value);
-              if (screen.visibility === 'PUBLIC') {
-                feedItems.push({
-                  ...screen,
-                  user: {
-                    id: user.id,
-                    displayName: user.displayName || '名無し',
-                    ageDisplay: formatAge(user.birthDate, user.agePublicSetting || 'AGE'),
-                    profileImage: user.profileImage
-                  }
-                });
-              }
-            } catch (error) {
-              console.error('Error loading screen:', error);
+      // 公開スクリーンを収集
+      const feedItems = [];
+      for (const { key, value } of screensData.items) {
+        if (key.endsWith(':current')) continue;
+        try {
+          const screen = JSON.parse(value);
+          if (screen.visibility !== 'PUBLIC') continue;
+          const user = userMap[screen.userId];
+          if (!user) continue;
+          feedItems.push({
+            ...screen,
+            user: {
+              id: user.id,
+              displayName: user.displayName || '名無し',
+              ageDisplay: formatAge(user.birthDate, user.agePublicSetting || 'AGE'),
+              profileImage: user.profileImage
             }
-          }
-        } catch (error) {
-          console.error('Error loading user:', error);
-        }
+          });
+        } catch (e) {}
       }
 
       feedItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1631,7 +1615,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
   }
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${isOwnProfile ? 'pb-0' : 'pb-20'}`}>
+    <div className={`min-h-screen bg-gray-50 ${isOwnProfile ? 'pb-24' : 'pb-20'}`}>
       {/* ヘッダー（他ユーザーのプロフィール表示時のみ） */}
       {!isOwnProfile && (
         <div className="bg-white border-b sticky top-0 z-10">

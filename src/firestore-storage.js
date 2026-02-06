@@ -166,6 +166,28 @@ class FirestoreStorage {
     }
   }
 
+  // プレフィックスに一致するキーと値を一括取得（高速版）
+  async listWithValues(prefix) {
+    try {
+      const { collection: col } = parsePrefixForList(prefix);
+      const colRef = collection(db, col);
+      const querySnapshot = await getDocs(colRef);
+
+      const items = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.originalKey && data.originalKey.startsWith(prefix)) {
+          items.push({ key: data.originalKey, value: data.value });
+        }
+      });
+
+      return { items };
+    } catch (error) {
+      console.error('Firestore listWithValues エラー:', prefix, error);
+      return { items: [] };
+    }
+  }
+
   // 全データを削除（使用注意）
   async clear() {
     console.warn('Firestore clear は実装されていません（安全のため）');
