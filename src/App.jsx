@@ -748,64 +748,109 @@ const HistoryScreen = ({ currentUserId, onUpload }) => {
     );
   }
 
+  // 古い順にソートして時系列（左→右）で表示
+  const chronologicalScreens = [...screens].reverse();
+
+  // 年月でグループ化
+  const groupedScreens = {};
+  chronologicalScreens.forEach(screen => {
+    const date = new Date(screen.createdAt);
+    const key = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    if (!groupedScreens[key]) groupedScreens[key] = [];
+    groupedScreens[key].push(screen);
+  });
+  const groupKeys = Object.keys(groupedScreens);
+
   return (
-    <div className="max-w-2xl mx-auto px-3 pb-24">
+    <div className="pb-24">
       {screens.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 px-3">
           <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 mb-2">まだ記録がありません</p>
           <p className="text-sm text-gray-400">ホーム画面のスクリーンショットを記録しましょう</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 pt-3">
-          {screens.map((screen) => {
-            const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
-            return (
-              <div key={screen.id} className="bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer" onClick={() => setSelectedScreen(screen)}>
-                <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
-                  <img src={images[0]} alt="Home screen" className="w-full h-full object-cover" />
-                  {images.length > 1 && (
-                    <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
-                      +{images.length - 1}
-                    </div>
-                  )}
-                  {screen.isCurrent && (
-                    <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-medium px-1.5 py-0.5 rounded">
-                      最新
-                    </div>
-                  )}
-                  {screen.visibility === 'PRIVATE' && (
-                    <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <EyeOff className="w-3 h-3" /> 非公開
-                    </div>
-                  )}
-                </div>
-                <div className="p-2 flex items-center justify-between">
-                  <span className="text-xs text-gray-500">
-                    {new Date(screen.createdAt).toLocaleDateString('ja-JP')}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
-                      className="p-1 hover:bg-gray-100 rounded transition"
-                    >
-                      {screen.visibility === 'PUBLIC' ? (
-                        <Eye className="w-4 h-4 text-purple-600" />
-                      ) : (
-                        <EyeOff className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
-                      className="p-1 hover:bg-red-50 rounded transition"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
-                  </div>
+        <div className="pt-3">
+          {/* タイムラインヘッダー */}
+          <div className="px-4 mb-3 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-purple-600" />
+            <span className="text-xs text-gray-500">{screens.length}件の記録</span>
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400">← 過去　　現在 →</span>
+          </div>
+
+          {/* 横スクロール本棚タイムライン */}
+          {groupKeys.map((groupKey) => (
+            <div key={groupKey} className="mb-5">
+              <div className="px-4 mb-2">
+                <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">{groupKey}</span>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-3 px-4 pb-2" style={{ minWidth: 'min-content' }}>
+                  {groupedScreens[groupKey].map((screen, idx) => {
+                    const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
+                    return (
+                      <div key={screen.id} className="flex flex-col items-center flex-shrink-0">
+                        {/* カード */}
+                        <div
+                          className="relative w-32 rounded-lg overflow-hidden shadow-md cursor-pointer border-2 border-transparent hover:border-purple-400 transition-all hover:shadow-lg"
+                          style={{ aspectRatio: '9/16' }}
+                          onClick={() => setSelectedScreen(screen)}
+                        >
+                          <img src={images[0]} alt="Home screen" className="w-full h-full object-cover" />
+                          {images.length > 1 && (
+                            <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-[10px] px-1 py-0.5 rounded">
+                              +{images.length - 1}
+                            </div>
+                          )}
+                          {screen.isCurrent && (
+                            <div className="absolute top-1 left-1 bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              NOW
+                            </div>
+                          )}
+                          {screen.visibility === 'PRIVATE' && (
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-[10px] px-1 py-0.5 rounded flex items-center gap-0.5">
+                              <EyeOff className="w-2.5 h-2.5" />
+                            </div>
+                          )}
+                        </div>
+                        {/* 日付と操作 */}
+                        <div className="mt-1.5 text-center">
+                          <span className="text-[10px] text-gray-500 block">
+                            {new Date(screen.createdAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <div className="flex items-center gap-1 mt-0.5 justify-center">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
+                              className="p-0.5 hover:bg-gray-100 rounded transition"
+                            >
+                              {screen.visibility === 'PUBLIC' ? (
+                                <Eye className="w-3 h-3 text-purple-600" />
+                              ) : (
+                                <EyeOff className="w-3 h-3 text-gray-400" />
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
+                              className="p-0.5 hover:bg-red-50 rounded transition"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+                        {/* タイムライン接続線 */}
+                        {idx < groupedScreens[groupKey].length - 1 && (
+                          <div className="hidden" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
+              {/* 本棚風の棚線 */}
+              <div className="mx-4 h-1 bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 rounded-full shadow-sm" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -1930,6 +1975,7 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [caption, setCaption] = useState('');
+  const [visibility, setVisibility] = useState('PUBLIC');
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
@@ -2007,7 +2053,7 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
         images: previews,
         caption: caption.trim(),
         createdAt: new Date().toISOString(),
-        visibility: 'PUBLIC',
+        visibility,
         isCurrent: true,
         likes: [],
         saves: [],
@@ -2115,6 +2161,33 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
               />
               <p className="text-xs text-gray-400 text-right mt-0.5">{caption.length}/200</p>
+            </div>
+
+            {/* 公開設定 */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                {visibility === 'PUBLIC' ? (
+                  <Eye className="w-4 h-4 text-purple-600" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-gray-400" />
+                )}
+                <span className="text-sm font-medium text-gray-700">
+                  {visibility === 'PUBLIC' ? 'ギャラリーに公開' : '自分だけに表示'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVisibility(v => v === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC')}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  visibility === 'PUBLIC' ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    visibility === 'PUBLIC' ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* 確認チェックボックス */}
