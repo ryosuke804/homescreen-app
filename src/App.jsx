@@ -748,12 +748,10 @@ const HistoryScreen = ({ currentUserId, onUpload }) => {
     );
   }
 
-  // 古い順にソートして時系列（左→右）で表示
-  const chronologicalScreens = [...screens].reverse();
-
+  // screens は新しい順（降順）のまま使う（上=現在、下=過去）
   // 年月でグループ化
   const groupedScreens = {};
-  chronologicalScreens.forEach(screen => {
+  screens.forEach(screen => {
     const date = new Date(screen.createdAt);
     const key = `${date.getFullYear()}年${date.getMonth() + 1}月`;
     if (!groupedScreens[key]) groupedScreens[key] = [];
@@ -762,7 +760,7 @@ const HistoryScreen = ({ currentUserId, onUpload }) => {
   const groupKeys = Object.keys(groupedScreens);
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 max-w-2xl mx-auto">
       {screens.length === 0 ? (
         <div className="text-center py-16 px-3">
           <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -770,85 +768,91 @@ const HistoryScreen = ({ currentUserId, onUpload }) => {
           <p className="text-sm text-gray-400">ホーム画面のスクリーンショットを記録しましょう</p>
         </div>
       ) : (
-        <div className="pt-3">
-          {/* タイムラインヘッダー */}
-          <div className="px-4 mb-3 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-purple-600" />
-            <span className="text-xs text-gray-500">{screens.length}件の記録</span>
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400">← 過去　　現在 →</span>
-          </div>
-
-          {/* 横スクロール本棚タイムライン */}
-          {groupKeys.map((groupKey) => (
-            <div key={groupKey} className="mb-5">
-              <div className="px-4 mb-2">
-                <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">{groupKey}</span>
+        <div className="pt-3 px-4">
+          {/* 縦タイムライン */}
+          {groupKeys.map((groupKey, groupIdx) => (
+            <div key={groupKey} className="relative">
+              {/* 年月ラベル */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full">{groupKey}</span>
+                <div className="flex-1 h-px bg-gray-200" />
               </div>
-              <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex gap-3 px-4 pb-2" style={{ minWidth: 'min-content' }}>
-                  {groupedScreens[groupKey].map((screen, idx) => {
-                    const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
-                    return (
-                      <div key={screen.id} className="flex flex-col items-center flex-shrink-0">
-                        {/* カード */}
-                        <div
-                          className="relative w-32 rounded-lg overflow-hidden shadow-md cursor-pointer border-2 border-transparent hover:border-purple-400 transition-all hover:shadow-lg"
-                          style={{ aspectRatio: '9/16' }}
-                          onClick={() => setSelectedScreen(screen)}
-                        >
-                          <img src={images[0]} alt="Home screen" className="w-full h-full object-cover" />
-                          {images.length > 1 && (
-                            <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-[10px] px-1 py-0.5 rounded">
-                              +{images.length - 1}
-                            </div>
-                          )}
+
+              {/* このグループの投稿 */}
+              {groupedScreens[groupKey].map((screen, idx) => {
+                const images = screen.images || (screen.imageUrl ? [screen.imageUrl] : []);
+                const isLast = groupIdx === groupKeys.length - 1 && idx === groupedScreens[groupKey].length - 1;
+                return (
+                  <div key={screen.id} className="flex gap-3 mb-4">
+                    {/* タイムラインライン */}
+                    <div className="flex flex-col items-center flex-shrink-0 w-8">
+                      <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
+                        screen.isCurrent ? 'bg-purple-600 border-purple-600' : 'bg-white border-purple-300'
+                      }`} />
+                      {!isLast && <div className="w-0.5 flex-1 bg-purple-200 mt-0.5" />}
+                    </div>
+
+                    {/* コンテンツ */}
+                    <div className="flex-1 min-w-0 pb-2">
+                      {/* 日付 & 操作 */}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            {new Date(screen.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
                           {screen.isCurrent && (
-                            <div className="absolute top-1 left-1 bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                              NOW
-                            </div>
+                            <span className="text-[10px] font-bold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">NOW</span>
                           )}
                           {screen.visibility === 'PRIVATE' && (
-                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-[10px] px-1 py-0.5 rounded flex items-center gap-0.5">
-                              <EyeOff className="w-2.5 h-2.5" />
-                            </div>
+                            <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                              <EyeOff className="w-3 h-3" /> 非公開
+                            </span>
                           )}
                         </div>
-                        {/* 日付と操作 */}
-                        <div className="mt-1.5 text-center">
-                          <span className="text-[10px] text-gray-500 block">
-                            {new Date(screen.createdAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
-                          </span>
-                          <div className="flex items-center gap-1 mt-0.5 justify-center">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleToggleVisibility(screen.id, screen.visibility); }}
-                              className="p-0.5 hover:bg-gray-100 rounded transition"
-                            >
-                              {screen.visibility === 'PUBLIC' ? (
-                                <Eye className="w-3 h-3 text-purple-600" />
-                              ) : (
-                                <EyeOff className="w-3 h-3 text-gray-400" />
-                              )}
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(screen.id, screen.isCurrent); }}
-                              className="p-0.5 hover:bg-red-50 rounded transition"
-                            >
-                              <Trash2 className="w-3 h-3 text-red-500" />
-                            </button>
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleVisibility(screen.id, screen.visibility)}
+                            className="p-1 hover:bg-gray-100 rounded transition"
+                          >
+                            {screen.visibility === 'PUBLIC' ? (
+                              <Eye className="w-3.5 h-3.5 text-purple-600" />
+                            ) : (
+                              <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(screen.id, screen.isCurrent)}
+                            className="p-1 hover:bg-red-50 rounded transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                          </button>
                         </div>
-                        {/* タイムライン接続線 */}
-                        {idx < groupedScreens[groupKey].length - 1 && (
-                          <div className="hidden" />
-                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* 本棚風の棚線 */}
-              <div className="mx-4 h-1 bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 rounded-full shadow-sm" />
+
+                      {/* 画像：横スクロール */}
+                      <div className="overflow-x-auto scrollbar-hide">
+                        <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
+                          {images.map((img, imgIdx) => (
+                            <div
+                              key={imgIdx}
+                              className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden shadow-md cursor-pointer border-2 border-transparent hover:border-purple-400 transition-all"
+                              style={{ aspectRatio: '9/16' }}
+                              onClick={() => setSelectedScreen(screen)}
+                            >
+                              <img src={img} alt={`Screen ${imgIdx + 1}`} className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* キャプション */}
+                      {screen.caption && (
+                        <p className="text-xs text-gray-600 mt-1.5 line-clamp-2">{screen.caption}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -2460,11 +2464,6 @@ const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
           onRefresh={() => setRefreshKey(prev => prev + 1)}
           onSignOut={signOut}
           onDeleteAccount={() => deleteAccount(currentUser.id)}
-          onNavigateToNotifications={() => {
-            setCurrentScreen('notifications');
-            setRefreshKey(prev => prev + 1);
-          }}
-          unreadCount={unreadCount}
         />
       )}
 
