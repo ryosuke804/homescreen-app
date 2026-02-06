@@ -83,13 +83,39 @@ const AuthProvider = ({ children }) => {
     await window.storage.delete('current-user');
   };
 
+  const deleteAccount = async (userId) => {
+    try {
+      // ユーザーデータ削除
+      await window.storage.delete(`user:${userId}`);
+      // スクリーンデータ削除
+      const screensResult = await window.storage.list(`screen:${userId}:`);
+      if (screensResult?.keys) {
+        for (const key of screensResult.keys) {
+          await window.storage.delete(key);
+        }
+      }
+      // 通知データ削除
+      const notifsResult = await window.storage.list(`notification:${userId}:`);
+      if (notifsResult?.keys) {
+        for (const key of notifsResult.keys) {
+          await window.storage.delete(key);
+        }
+      }
+      // ログアウト
+      await signOut();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen bg-gray-50">
       <div className="text-gray-600">読み込み中...</div>
     </div>;
   }
 
-  return children({ currentUser, signIn, signOut });
+  return children({ currentUser, signIn, signOut, deleteAccount });
 };
 
 // 年齢計算ユーティリティ
@@ -1260,7 +1286,7 @@ const ProfileImageGallery = ({ screen }) => {
 };
 
 // プロフィール画面
-const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, onNavigateToNotifications, unreadCount }) => {
+const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, onDeleteAccount, onNavigateToNotifications, unreadCount }) => {
   const [user, setUser] = useState(null);
   const [screens, setScreens] = useState([]);
   const [savedScreens, setSavedScreens] = useState([]);
@@ -1462,7 +1488,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
         {/* プロフィールヘッダー */}
         <div className="bg-white rounded-xl shadow-sm p-3 mb-3">
           {isEditing ? (
-            <ProfileEditor user={user} onSave={handleUpdateProfile} onCancel={() => setIsEditing(false)} onSignOut={onSignOut} />
+            <ProfileEditor user={user} onSave={handleUpdateProfile} onCancel={() => setIsEditing(false)} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
           ) : (
             <button
               onClick={() => isOwnProfile && setIsEditing(!isEditing)}
@@ -1687,7 +1713,7 @@ const ProfileScreen = ({ userId, currentUserId, onBack, onRefresh, onSignOut, on
 };
 
 // プロフィール編集コンポーネント
-const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
+const ProfileEditor = ({ user, onSave, onCancel, onSignOut, onDeleteAccount }) => {
   const [displayName, setDisplayName] = useState(user.displayName || '');
   const [bio, setBio] = useState(user.bio || '');
   const [agePublicSetting, setAgePublicSetting] = useState(user.agePublicSetting || 'AGE');
@@ -1800,31 +1826,82 @@ const ProfileEditor = ({ user, onSave, onCancel, onSignOut }) => {
       </button>
 
       {/* その他の設定 */}
-      {onSignOut && (
-        <div className="pt-2">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-full text-xs text-gray-500 hover:text-gray-700 py-1.5 transition flex items-center justify-center gap-1"
-          >
-            その他の設定 {showSettings ? '▲' : '▼'}
-          </button>
-          {showSettings && (
-            <div className="mt-2 bg-gray-50 rounded-lg p-3">
+      <div className="pt-2">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="w-full text-xs text-gray-500 hover:text-gray-700 py-1.5 transition flex items-center justify-center gap-1"
+        >
+          その他の設定 {showSettings ? '▲' : '▼'}
+        </button>
+        {showSettings && (
+          <div className="mt-2 bg-gray-50 rounded-lg p-2 space-y-1">
+            {/* 問い合わせ */}
+            <a
+              href="mailto:support@homescreen-app.com"
+              className="w-full text-gray-600 text-xs py-2 hover:bg-gray-100 rounded-lg transition flex items-center justify-center gap-1"
+            >
+              お問い合わせ
+            </a>
+
+            {/* 利用規約 */}
+            <button
+              onClick={() => window.open('/terms.html', '_blank')}
+              className="w-full text-gray-600 text-xs py-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              利用規約
+            </button>
+
+            {/* プライバシーポリシー */}
+            <button
+              onClick={() => window.open('/privacy.html', '_blank')}
+              className="w-full text-gray-600 text-xs py-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              プライバシーポリシー
+            </button>
+
+            {/* 特定商取引法に基づく表記 */}
+            <button
+              onClick={() => window.open('/legal.html', '_blank')}
+              className="w-full text-gray-600 text-xs py-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              特定商取引法に基づく表記
+            </button>
+
+            <div className="border-t my-1"></div>
+
+            {/* ログアウト */}
+            {onSignOut && (
               <button
                 onClick={() => {
                   if (confirm('ログアウトしますか？')) {
                     onSignOut();
                   }
                 }}
-                className="w-full text-red-500 text-xs py-1.5 hover:text-red-600 transition flex items-center justify-center gap-1"
+                className="w-full text-red-500 text-xs py-2 hover:bg-red-50 rounded-lg transition flex items-center justify-center gap-1"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 ログアウト
               </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+
+            {/* アカウント削除 */}
+            {onDeleteAccount && (
+              <button
+                onClick={() => {
+                  if (confirm('本当にアカウントを削除しますか？\n\n投稿・プロフィール等の全てのデータが削除され、元に戻せません。')) {
+                    if (confirm('最終確認：アカウントを完全に削除します。よろしいですか？')) {
+                      onDeleteAccount();
+                    }
+                  }
+                }}
+                className="w-full text-red-400 text-xs py-2 hover:bg-red-50 rounded-lg transition"
+              >
+                アカウント削除
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -2070,14 +2147,14 @@ const UploadScreen = ({ userId, onComplete, onCancel }) => {
 const App = () => {
   return (
     <AuthProvider>
-      {({ currentUser, signIn, signOut }) => (
-        <MainApp currentUser={currentUser} signIn={signIn} signOut={signOut} />
+      {({ currentUser, signIn, signOut, deleteAccount }) => (
+        <MainApp currentUser={currentUser} signIn={signIn} signOut={signOut} deleteAccount={deleteAccount} />
       )}
     </AuthProvider>
   );
 };
 
-const MainApp = ({ currentUser, signIn, signOut }) => {
+const MainApp = ({ currentUser, signIn, signOut, deleteAccount }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('feed');
   const [selectedProfileId, setSelectedProfileId] = useState(null);
@@ -2208,6 +2285,7 @@ const MainApp = ({ currentUser, signIn, signOut }) => {
         }}
         onRefresh={() => setRefreshKey(prev => prev + 1)}
         onSignOut={signOut}
+        onDeleteAccount={() => deleteAccount(currentUser.id)}
         onNavigateToNotifications={() => {
           setCurrentScreen('notifications');
           setRefreshKey(prev => prev + 1);
