@@ -646,6 +646,7 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
   const [feed, setFeed] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showComments, setShowComments] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [startY, setStartY] = useState(0);
@@ -775,9 +776,14 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
         await createNotification(NOTIFICATION_TYPES.LIKE, currentUserId, userId, screenId);
       }
       
+      const updatedItem = { ...updatedScreen, user: item.user };
       const newFeed = [...feed];
-      newFeed[itemIndex] = { ...updatedScreen, user: item.user };
+      newFeed[itemIndex] = updatedItem;
       setFeed(newFeed);
+      // 詳細モーダルも更新
+      if (selectedItem && selectedItem.id === screenId) {
+        setSelectedItem(updatedItem);
+      }
     } catch (error) {
       console.error('Error updating like:', error);
     }
@@ -800,10 +806,15 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
     try {
       await window.storage.set(`screen:${userId}:current`, JSON.stringify(updatedScreen));
       await window.storage.set(`screen:${userId}:${screenId}`, JSON.stringify(updatedScreen));
-      
+
+      const updatedItem = { ...updatedScreen, user: item.user };
       const newFeed = [...feed];
-      newFeed[itemIndex] = { ...updatedScreen, user: item.user };
+      newFeed[itemIndex] = updatedItem;
       setFeed(newFeed);
+      // 詳細モーダルも更新
+      if (selectedItem && selectedItem.id === screenId) {
+        setSelectedItem(updatedItem);
+      }
     } catch (error) {
       console.error('Error updating save:', error);
     }
@@ -862,35 +873,106 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile, onUpload }) => {
           <p className="text-sm text-gray-400">最初のホーム画面を投稿してみましょう</p>
         </div>
       ) : (
-        <div className="space-y-6 px-4">
+        <div className="grid grid-cols-2 gap-3 px-3">
           {feed.map((item) => (
-            <FeedItem
+            <FeedCard
               key={item.id}
               item={item}
               currentUserId={currentUserId}
               onNavigateToProfile={onNavigateToProfile}
               onLike={handleLike}
-              onSave={handleSave}
-              showComments={showComments === item.id}
-              onToggleComments={() => setShowComments(showComments === item.id ? null : item.id)}
+              onTap={() => setSelectedItem(item)}
             />
           ))}
         </div>
       )}
       </div>
 
+      {/* 詳細モーダル */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setSelectedItem(null)}>
+          <div className="max-w-lg w-full my-8" onClick={(e) => e.stopPropagation()}>
+            <FeedItem
+              item={selectedItem}
+              currentUserId={currentUserId}
+              onNavigateToProfile={(userId) => { setSelectedItem(null); onNavigateToProfile(userId); }}
+              onLike={(screenId, userId) => { handleLike(screenId, userId); }}
+              onSave={(screenId, userId) => { handleSave(screenId, userId); }}
+              showComments={showComments === selectedItem.id}
+              onToggleComments={() => setShowComments(showComments === selectedItem.id ? null : selectedItem.id)}
+              onClose={() => setSelectedItem(null)}
+            />
+          </div>
+        </div>
+      )}
+
       <button
         onClick={onUpload}
-        className="fixed bottom-20 right-6 bg-purple-600 text-white w-16 h-16 rounded-full shadow-lg hover:bg-purple-700 transition flex items-center justify-center"
+        className="fixed bottom-20 right-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg hover:bg-purple-700 transition flex items-center justify-center z-10"
       >
-        <Upload className="w-6 h-6" />
+        <Upload className="w-5 h-5" />
       </button>
     </div>
   );
 };
 
-// フィードアイテムコンポーネント（複数画像対応）
-const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, showComments, onToggleComments }) => {
+// フィードカードコンポーネント（グリッド表示用）
+const FeedCard = ({ item, currentUserId, onNavigateToProfile, onLike, onTap }) => {
+  const hasLiked = (item.likes || []).includes(currentUserId);
+  const images = item.images || (item.imageUrl ? [item.imageUrl] : []);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden" onClick={onTap}>
+      {/* 画像 */}
+      <div className="relative aspect-[9/16] bg-gray-100 overflow-hidden">
+        <img
+          src={images[0]}
+          alt="Home screen"
+          className="w-full h-full object-cover"
+        />
+        {images.length > 1 && (
+          <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
+            +{images.length - 1}
+          </div>
+        )}
+      </div>
+
+      {/* ユーザー情報 & いいね */}
+      <div className="p-2">
+        <div className="flex items-center gap-1.5 mb-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onNavigateToProfile(item.userId); }}
+            className="flex items-center gap-1.5 min-w-0 flex-1"
+          >
+            <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
+              {item.user.profileImage ? (
+                <img src={item.user.profileImage} alt="" className="w-full h-full object-cover" />
+              ) : (
+                item.user.displayName[0].toUpperCase()
+              )}
+            </div>
+            <span className="text-xs font-medium text-gray-900 truncate">{item.user.displayName}</span>
+          </button>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <button
+            onClick={(e) => { e.stopPropagation(); onLike(item.id, item.userId); }}
+            className="flex items-center gap-0.5"
+          >
+            <span className={hasLiked ? 'text-red-500' : ''}>{hasLiked ? '❤️' : '🤍'}</span>
+            <span>{(item.likes || []).length}</span>
+          </button>
+          <span className="flex items-center gap-0.5">
+            💬 {(item.comments || []).length}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// フィードアイテムコンポーネント（詳細表示・複数画像対応）
+const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, showComments, onToggleComments, onClose }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState(item.comments || []);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -956,7 +1038,7 @@ const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, sh
       <div className="p-4 flex items-center gap-3">
         <button
           onClick={() => onNavigateToProfile(item.userId)}
-          className="flex items-center gap-3 hover:opacity-80 transition"
+          className="flex items-center gap-3 hover:opacity-80 transition flex-1"
         >
           <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
             {item.user.profileImage ? (
@@ -972,6 +1054,14 @@ const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, sh
             )}
           </div>
         </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+          >
+            ✕
+          </button>
+        )}
       </div>
       
       {/* 画像表示エリア（複数画像対応） */}

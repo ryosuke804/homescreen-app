@@ -58,10 +58,29 @@ const parsePrefixForList = (prefix) => {
   return { collection: 'misc', prefix: '' };
 };
 
+// ローカル専用キー（端末ごとに保持すべきデータ）
+const LOCAL_KEYS = ['current-user'];
+
+const isLocalKey = (key) => LOCAL_KEYS.includes(key);
+
 // Firestoreベースのストレージクラス
 class FirestoreStorage {
   // データを取得
   async get(key) {
+    // ローカル専用キーはlocalStorageから取得
+    if (isLocalKey(key)) {
+      try {
+        const value = localStorage.getItem(`hs_${key}`);
+        if (value !== null) {
+          return { value };
+        }
+        return null;
+      } catch (error) {
+        console.error('LocalStorage get エラー:', key, error);
+        return null;
+      }
+    }
+
     try {
       const { collection: col, docId } = parseKey(key);
       const docRef = doc(db, col, docId);
@@ -79,6 +98,16 @@ class FirestoreStorage {
 
   // データを保存
   async set(key, value) {
+    // ローカル専用キーはlocalStorageに保存
+    if (isLocalKey(key)) {
+      try {
+        localStorage.setItem(`hs_${key}`, value);
+      } catch (error) {
+        console.error('LocalStorage set エラー:', key, error);
+      }
+      return;
+    }
+
     try {
       const { collection: col, docId } = parseKey(key);
       const docRef = doc(db, col, docId);
@@ -96,6 +125,16 @@ class FirestoreStorage {
 
   // データを削除
   async delete(key) {
+    // ローカル専用キーはlocalStorageから削除
+    if (isLocalKey(key)) {
+      try {
+        localStorage.removeItem(`hs_${key}`);
+      } catch (error) {
+        console.error('LocalStorage delete エラー:', key, error);
+      }
+      return;
+    }
+
     try {
       const { collection: col, docId } = parseKey(key);
       const docRef = doc(db, col, docId);
