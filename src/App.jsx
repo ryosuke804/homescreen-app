@@ -934,29 +934,37 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile }) => {
       }
 
       const feedItems = [];
-      
+
       for (const userKey of usersResult.keys) {
         try {
           const userResult = await window.storage.get(userKey);
           if (!userResult?.value) continue;
-          
+
           const user = JSON.parse(userResult.value);
-          
-          const screenKey = `screen:${user.id}:current`;
-          const screenResult = await window.storage.get(screenKey);
-          
-          if (screenResult?.value) {
-            const screen = JSON.parse(screenResult.value);
-            if (screen.visibility === 'PUBLIC') {
-              feedItems.push({
-                ...screen,
-                user: {
-                  id: user.id,
-                  displayName: user.displayName || '名無し',
-                  ageDisplay: formatAge(user.birthDate, user.agePublicSetting || 'AGE'),
-                  profileImage: user.profileImage
-                }
-              });
+
+          // このユーザーの全スクリーンを取得
+          const screensResult = await window.storage.list(`screen:${user.id}:`);
+          if (!screensResult?.keys) continue;
+
+          for (const screenKey of screensResult.keys) {
+            if (screenKey.endsWith(':current')) continue; // currentは個別キーと重複するのでスキップ
+            try {
+              const screenResult = await window.storage.get(screenKey);
+              if (!screenResult?.value) continue;
+              const screen = JSON.parse(screenResult.value);
+              if (screen.visibility === 'PUBLIC') {
+                feedItems.push({
+                  ...screen,
+                  user: {
+                    id: user.id,
+                    displayName: user.displayName || '名無し',
+                    ageDisplay: formatAge(user.birthDate, user.agePublicSetting || 'AGE'),
+                    profileImage: user.profileImage
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Error loading screen:', error);
             }
           }
         } catch (error) {
@@ -1029,8 +1037,10 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile }) => {
     const updatedScreen = { ...item, likes: updatedLikes };
 
     try {
-      await window.storage.set(`screen:${userId}:current`, JSON.stringify(updatedScreen));
       await window.storage.set(`screen:${userId}:${screenId}`, JSON.stringify(updatedScreen));
+      if (item.isCurrent) {
+        await window.storage.set(`screen:${userId}:current`, JSON.stringify(updatedScreen));
+      }
       
       // いいねした場合は通知を作成
       if (!hasLiked) {
@@ -1065,8 +1075,10 @@ const FeedScreen = ({ currentUserId, onNavigateToProfile }) => {
     const updatedScreen = { ...item, saves: updatedSaves };
 
     try {
-      await window.storage.set(`screen:${userId}:current`, JSON.stringify(updatedScreen));
       await window.storage.set(`screen:${userId}:${screenId}`, JSON.stringify(updatedScreen));
+      if (item.isCurrent) {
+        await window.storage.set(`screen:${userId}:current`, JSON.stringify(updatedScreen));
+      }
 
       const updatedItem = { ...updatedScreen, user: item.user };
       const newFeed = [...feed];
@@ -1274,8 +1286,10 @@ const FeedItem = ({ item, currentUserId, onNavigateToProfile, onLike, onSave, sh
     const updatedScreen = { ...item, comments: updatedComments };
 
     try {
-      await window.storage.set(`screen:${item.userId}:current`, JSON.stringify(updatedScreen));
       await window.storage.set(`screen:${item.userId}:${item.id}`, JSON.stringify(updatedScreen));
+      if (item.isCurrent) {
+        await window.storage.set(`screen:${item.userId}:current`, JSON.stringify(updatedScreen));
+      }
       
       // 通知を作成
       await createNotification(NOTIFICATION_TYPES.COMMENT, currentUserId, item.userId, item.id, trimmedComment);
